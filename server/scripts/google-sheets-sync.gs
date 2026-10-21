@@ -113,16 +113,14 @@ function upsertRows_(rows) {
 function getOrCreateSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_NAME);
-  if (sheet) return sheet;
+  if (sheet) {
+    ensureHeader_(sheet);
+    return sheet;
+  }
 
   sheet = ss.insertSheet(SHEET_NAME);
   var headers = COLUMNS.map(function (c) { return c[0]; });
-  sheet.getRange(1, 1, 1, headers.length)
-    .setValues([headers])
-    .setFontWeight('bold')
-    .setBackground('#2c1a66')
-    .setFontColor('#ffffff');
-  sheet.setFrozenRows(1);
+  writeHeader_(sheet);
 
   // Text format keeps leading zeros/long IDs intact and stops formulas being evaluated
   var maxRows = sheet.getMaxRows();
@@ -149,6 +147,37 @@ function getOrCreateSheet_() {
 
   sheet.autoResizeColumns(1, headers.length);
   return sheet;
+}
+
+// Restores the header row if someone cleared or deleted it (e.g. wiping all rows in the tab).
+// If row 1 now holds a lead, a new row is inserted above it so no data is overwritten.
+function ensureHeader_(sheet) {
+  var first = sheet.getLastRow() > 0 ? String(sheet.getRange(1, 1).getValue()) : '';
+  if (first === COLUMNS[0][0]) return;
+  if (first !== '') {
+    sheet.insertRowBefore(1);
+    // The shifted lead row kept the old header styling; reset it to plain
+    sheet.getRange(2, 1, 1, COLUMNS.length)
+      .setFontWeight('normal').setBackground(null).setFontColor(null);
+  }
+  writeHeader_(sheet);
+
+  // Deleting rows also drops the plain-text formatting, so re-apply it
+  var maxRows = sheet.getMaxRows();
+  COLUMNS.forEach(function (c, i) {
+    if (c[2]) sheet.getRange(2, i + 1, maxRows - 1, 1).setNumberFormat('@');
+  });
+}
+
+function writeHeader_(sheet) {
+  var headers = COLUMNS.map(function (c) { return c[0]; });
+  sheet.getRange(1, 1, 1, headers.length)
+    .setValues([headers])
+    .setNumberFormat('@')
+    .setFontWeight('bold')
+    .setBackground('#2c1a66')
+    .setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
 }
 
 function json_(obj) {
