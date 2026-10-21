@@ -1,0 +1,68 @@
+:root {
+  /* Oxblood Maroon + Gold Theme Tokens */
+  --bg-1: #2a0a14;            /* page background top */
+  --bg-2: #4a1220;            /* page background bottom / lighter band */
+  --bg-deep: #1f0710;         /* footer + darkest areas */
+  --card: #3a1019;            /* plan cards */
+  --card-inner: #2e0b15;      /* price box, progress box inside cards */
+  --card-border: rgba(232, 184, 74, 0.28);
+  --gold: #e8b84a;            /* main gold */
+  --gold-light: #f7d774;      /* headings, highlights, big numbers */
+  --gold-dark: #c98f1e;       /* button gradient end, strike accents */
+  --amber: #f0a030;           /* ribbon + progress fill end */
+  --cream: #fff4e0;           /* main text on dark, cream panels */
+  --cream-muted: rgba(255, 244, 224, 0.72);  /* secondary text on dark */
+  --rose: #b83a5a;            /* discount badges (25% OFF / 70% OFF) */
+  --panel: #fff4e0;           /* "What's included" + form panel background */
+  --input-bg: #fffaf0;
+  --input-border: #e6d3b0;
+  --ink: #3a2a25;             /* body text on cream panels */
+  --ink-heading: #5a1626;     /* headings/labels on cream panels */
+  --ink-muted: #7a6a60;       /* helper text, placeholders: #9a8570 */
+  --glow: rgba(255, 140, 60, 0.22);
+
+  /* Legacy variable mappings to maintain full component consistency */
+  --night-950: var(--bg-1);
+  --night-900: var(--bg-deep);
+  --night-800: var(--card);
+  --plum-700: var(--ink-heading);
+
+  --gold-300: var(--gold-light);
+  --gold-400: var(--gold);
+  --gold-500: var(--gold-dark);
+  --gold-700: #8a5a10;
+
+  --saffron: var(--amber);
+  --saffron-glow: var(--glow);
+  --magenta: var(--rose);
+  --magenta-glow: rgba(184, 58, 90, 0.35);
+
+  --ivory: var(--panel);
+  --paper: var(--cream-muted);
+  --muted: var(--ink-muted);
+  --muted-light: rgba(255, 244, 224, 0.65);
+
+  /* Glassmorphism & Shadows */
+  --glass-bg: var(--card);
+  --glass-border: var(--card-border);
+  --glass-border-hover: rgba(232, 184, 74, 0.55);
+  --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  --gold-glow-subtle: 0 0 20px rgba(232, 184, 74, 0.2);
+  --gold-glow-strong: 0 0 35px rgba(232, 184, 74, 0.45);
+
+  /* Typography */
+  --font-heading: 'Fraunces', Georgia, serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-hindi: 'Noto Serif Devanagari', serif;
+
+  /* Radii & Transitions */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout Spacing */
+  --gutter: clamp(16px, 4vw, 40px);
+}
