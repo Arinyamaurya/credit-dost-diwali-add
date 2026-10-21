@@ -1,21 +1,73 @@
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const Lead = require('../models/Lead');
-const SpotCounter = require('../models/SpotCounter');
-const { broadcastSpotsUpdate } = require('../services/spots');
+const PaymentEvent = require('../models/PaymentEvent');
+const { verifyWebhookSignature } = require('../services/razorpay');
+const {
+  findLeadForPayment,
+  markLeadPaid,
+  settlePayment,
+  recordPaymentFailure,
+} = require('../services/payments');
+
+/**
+ * Legacy: payments made through the old fixed payment links carry no lead id,
+ * so fall back to matching an unpaid lead by phone/email.
+ */
+async function handleLegacyPaymentLink(payment) {
+  let lead = await findLeadForPayment({ notes: payment.notes, orderId: null });
+  if (!lead) {
+    const contact = payment.contact ? payment.contact.replace(/\D/g, '').slice(-10) : null;
+    const email = payment.email?.toLowerCase();
+    const unpaid = { status: { $in: ['pending', 'expired'] } };
+    if (contact) lead = await Lead.findOne({ mobile: contact, ...unpaid }).sort({ createdAt: -1 });
+    if (!lead && email) lead = await Lead.findOne({ email, ...unpaid }).sort({ createdAt: -1 });
+  }
+  // Old links had dashboard-defined amounts, so don't enforce the new pricing here
+  return markLeadPaid(lead, {
+    orderId: payment.order_id,
+    paymentId: payment.id,
+    amountPaise: payment.amount,
+    source: 'webhook',
+    strictAmount: false,
+  });
+}
+
+async function processEvent(event, payload) {
+  const payment = payload?.payment?.entity;
+
+  switch (event) {
+    case 'payment.authorized':
+    case 'payment.captured':
+    case 'order.paid':
+      // Entity comes from a signature-verified body, so it is trusted as-is
+      return settlePayment(payment, { source: 'webhook' });
+
+    case 'payment.failed': {
+      const lead = await findLeadForPayment({ notes: payment?.notes, orderId: payment?.order_id });
+      await recordPaymentFailure(lead, payment?.error_description || payment?.error_reason);
+      return { outcome: 'failure_recorded', lead };
+    }
+
+    case 'payment_link.paid':
+      return handleLegacyPaymentLink(payment);
+
+    default:
+      return { outcome: 'ignored', lead: null };
+  }
+}
 
 /**
  * POST /api/webhooks/payment
- * Razorpay / Payment Gateway Webhook handler.
- * Expects express.raw() body to compute and verify HMAC SHA256 signature.
+ * Razorpay webhook handler. Expects express.raw() body to verify the HMAC signature.
+ * Returns 2xx only after the event has been processed, so failures are retried by Razorpay.
  */
 router.post('/', async (req, res) => {
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-
-  if (!webhookSecret) {
-    console.warn('RAZORPAY_WEBHOOK_SECRET not configured; ignoring webhook.');
-    return res.status(200).json({ ok: true, message: 'Webhook secret not set' });
+  if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+    console.error('[Webhook] RAZORPAY_WEBHOOK_SECRET not configured; cannot verify webhook.');
+    // In production, fail so Razorpay retries once the secret is set
+    const statusCode = process.env.NODE_ENV === 'production' ? 500 : 200;
+    return res.status(statusCode).json({ ok: false, error: 'Webhook secret not set' });
   }
 
   const signature = req.headers['x-razorpay-signature'];
@@ -23,65 +75,40 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ ok: false, error: 'Missing webhook signature' });
   }
 
+  const rawBody = req.body; // Buffer from express.raw()
+  if (!Buffer.isBuffer(rawBody) || !verifyWebhookSignature(rawBody, signature)) {
+    return res.status(400).json({ ok: false, error: 'Invalid webhook signature' });
+  }
+
   try {
-    const rawBody = req.body; // Buffer from express.raw()
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(rawBody)
-      .digest('hex');
+    const body = JSON.parse(rawBody.toString('utf-8'));
+    const event = body.event;
+    const eventId = req.headers['x-razorpay-event-id'];
 
-    const sigBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-
-    if (
-      sigBuffer.length !== expectedBuffer.length ||
-      !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
-    ) {
-      return res.status(400).json({ ok: false, error: 'Invalid webhook signature' });
+    if (eventId && (await PaymentEvent.exists({ eventId }))) {
+      return res.status(200).json({ ok: true, duplicate: true });
     }
 
-    const payload = JSON.parse(rawBody.toString('utf-8'));
-    const event = payload.event;
+    const { outcome, lead } = await processEvent(event, body.payload);
+    const payment = body.payload?.payment?.entity;
 
-    // Handle payment successful events
-    if (event === 'payment_link.paid' || event === 'payment.captured') {
-      const paymentEntity = payload.payload?.payment?.entity || payload.payload?.payment_link?.entity;
-      const notes = paymentEntity?.notes || {};
-      const leadId = notes.leadId || notes.lead_id;
-      const contact = paymentEntity?.contact ? paymentEntity.contact.replace(/\D/g, '').slice(-10) : null;
-      const email = paymentEntity?.email?.toLowerCase();
-      const paymentRef = paymentEntity?.id || 'manual_webhook';
-
-      let lead = null;
-      if (leadId) {
-        lead = await Lead.findById(leadId);
-      } else if (contact) {
-        lead = await Lead.findOne({ mobile: contact, status: 'pending' });
-      } else if (email) {
-        lead = await Lead.findOne({ email, status: 'pending' });
-      }
-
-      if (lead && lead.status !== 'paid') {
-        lead.status = 'paid';
-        lead.paidAt = new Date();
-        lead.paymentRef = paymentRef;
-        await lead.save();
-
-        // If mode is "paid", increment the spot counter on confirmed payment
-        const mode = process.env.SPOT_COUNT_MODE || 'submitted';
-        if (mode === 'paid') {
-          await SpotCounter.findOneAndUpdate(
-            { kind: lead.kind },
-            { $inc: { claimed: 1 } },
-            { new: true }
-          );
-        }
-
-        broadcastSpotsUpdate().catch(() => {});
-        console.log(`[Webhook] Marked lead ${lead._id} as paid (ref: ${paymentRef})`);
+    if (eventId) {
+      try {
+        await PaymentEvent.create({
+          eventId,
+          event,
+          orderId: payment?.order_id || body.payload?.order?.entity?.id || null,
+          paymentId: payment?.id || null,
+          leadId: lead?._id || null,
+          outcome,
+          payload: body.payload,
+        });
+      } catch (err) {
+        if (err.code !== 11000) throw err; // concurrent retry already logged it
       }
     }
 
+    console.log(`[Webhook] ${event} → ${outcome}${lead ? ` (lead ${lead._id})` : ''}`);
     return res.status(200).json({ ok: true, received: true });
   } catch (err) {
     console.error('[Webhook] Error processing payment webhook:', err.message);

@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const { connectDB, getDbStatus } = require('./config/db');
 const { seedSpotCounters } = require('./services/spots');
 const { startExpiryJob } = require('./services/expiry');
+const sheets = require('./services/sheets');
 const { leadsRateLimiter, generalRateLimiter } = require('./middleware/rateLimiters');
 const { adminAuth } = require('./middleware/adminAuth');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -13,6 +14,8 @@ const leadsRouter = require('./routes/leads');
 const spotsRouter = require('./routes/spots');
 const adminRouter = require('./routes/admin');
 const webhooksRouter = require('./routes/webhooks');
+const paymentsRouter = require('./routes/payments');
+const razorpay = require('./services/razorpay');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -63,6 +66,10 @@ app.get('/api/health', (req, res) => {
 // Spots routes (GET /api/spots and GET /api/spots/stream with SSE)
 app.use('/api', generalRateLimiter, spotsRouter);
 
+// Payment routes (Razorpay order / verify / status). Mounted before the /api leads
+// mount so the strict leads limiter doesn't apply to payment retries.
+app.use('/api/payments', generalRateLimiter, paymentsRouter);
+
 // Leads routes (POST /api/leads with 10 req/15min rate limiter)
 app.use('/api', leadsRateLimiter, leadsRouter);
 
@@ -82,11 +89,26 @@ async function startServer() {
   await connectDB();
   await seedSpotCounters();
   startExpiryJob();
+  sheets.startSheetSyncJob();
 
   app.listen(PORT, () => {
     console.log(`✓ Credit Dost Diwali Server running on port ${PORT}`);
     console.log(`✓ Database Status: ${getDbStatus()}`);
     console.log(`✓ Allowed Client Origin: ${CLIENT_ORIGIN}`);
+    if (!razorpay.isConfigured()) {
+      console.warn('⚠ RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set — online payments disabled');
+    } else {
+      const mode = process.env.RAZORPAY_KEY_ID.startsWith('rzp_live_') ? 'LIVE' : 'TEST';
+      console.log(`✓ Razorpay configured (${mode} mode)`);
+    }
+    console.log(
+      sheets.isConfigured()
+        ? '✓ Google Sheets sync enabled'
+        : 'ℹ Google Sheets sync disabled (set SHEETS_WEBHOOK_URL and SHEETS_WEBHOOK_SECRET)'
+    );
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+      console.warn('⚠ RAZORPAY_WEBHOOK_SECRET not set — payment webhooks will be rejected');
+    }
   });
 }
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const Lead = require('../models/Lead');
 const { leadsToCsv } = require('../utils/csv');
 const { rollbackSpotAtomic } = require('../services/spots');
+const sheets = require('../services/sheets');
 
 /**
  * GET /api/admin/leads
@@ -89,6 +90,9 @@ router.patch('/leads/:id', async (req, res, next) => {
     if (status === 'paid' && !lead.paidAt) {
       lead.paidAt = new Date();
     }
+    if (status === 'paid' && previousStatus !== 'paid') {
+      lead.paymentSource = 'admin';
+    }
 
     await lead.save();
 
@@ -100,7 +104,31 @@ router.patch('/leads/:id', async (req, res, next) => {
       }
     }
 
+    sheets.syncLead(lead);
+
     return res.status(200).json({ ok: true, lead });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/sheets/resync
+ * Push leads to the Google Sheet. Default: only leads whose last sync failed.
+ * ?full=1 re-sends every lead (use once after connecting a new sheet to backfill).
+ */
+router.post('/sheets/resync', async (req, res, next) => {
+  try {
+    if (!sheets.isConfigured()) {
+      return res.status(503).json({
+        ok: false,
+        code: 'SHEETS_NOT_CONFIGURED',
+        error: 'Set SHEETS_WEBHOOK_URL and SHEETS_WEBHOOK_SECRET in server/.env',
+      });
+    }
+    const full = req.query.full === '1' || req.query.full === 'true';
+    const result = await sheets.resyncLeads({ full });
+    return res.status(result.ok ? 200 : 502).json(result);
   } catch (error) {
     next(error);
   }
