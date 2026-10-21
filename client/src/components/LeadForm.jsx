@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL, WHATSAPP_NUMBER } from '../config';
 import { ConfirmPanel } from './ConfirmPanel';
@@ -193,8 +193,9 @@ export const LeadForm = ({ plan, isSoldOut = false, onLeadSuccess }) => {
         const leadRecord = {
           ...payload,
           id: res.data.leadId,
-          paymentLink: res.data.paymentLink || '',
           amount: res.data.amount,
+          amountPaise: res.data.amountPaise,
+          gstPaise: res.data.gstPaise,
         };
 
         // Remember in localStorage wrapped in try/catch
@@ -257,6 +258,20 @@ export const LeadForm = ({ plan, isSoldOut = false, onLeadSuccess }) => {
     setSubmittedLead(null);
   };
 
+  // Persist paid state so a reload shows the success view
+  const handlePaid = useCallback((paymentId) => {
+    setSubmittedLead((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, paid: true, paymentId: paymentId || prev.paymentId || null };
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      } catch {
+        // Ignore storage errors
+      }
+      return updated;
+    });
+  }, [storageKey]);
+
   // 1. If lead is already submitted and confirmed
   if (submittedLead) {
     return (
@@ -264,6 +279,7 @@ export const LeadForm = ({ plan, isSoldOut = false, onLeadSuccess }) => {
         lead={submittedLead}
         plan={plan}
         onEdit={handleEditDetails}
+        onPaid={handlePaid}
       />
     );
   }

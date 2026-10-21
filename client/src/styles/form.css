@@ -250,9 +250,34 @@
   text-align: center;
 }
 
-.btn-pay-link:hover {
+button.btn-pay-link {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-pay-link:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(233, 185, 73, 0.65);
+}
+
+.btn-pay-link:disabled {
+  cursor: wait;
+  opacity: 0.8;
+}
+
+.payment-success-box {
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+  color: #2e7d32;
+  padding: 0.85rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
 }
 
 .payment-warning-box {

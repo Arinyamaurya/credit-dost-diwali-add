@@ -13,7 +13,11 @@ export const CONTACT_EMAIL = 'support@creditdost.co.in';
 // API Base URL (empty string uses Vite proxy in dev; can set VITE_API_URL in production)
 export const API_URL = import.meta.env.VITE_API_URL || '';
 
-// Plan Offer Configurations
+// Format paise as Indian Rupees, e.g. 354000 -> "₹3,540"
+export const formatInr = (paise) =>
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+// Plan Offer Configurations (display only — the server's config/pricing.js is authoritative)
 export const PLANS = {
   partner: {
     id: 'partner',
@@ -23,6 +27,8 @@ export const PLANS = {
     title: 'Diwali offer: become a franchise partner',
     subtitle: 'Start your own credit consulting business, working from home.',
     price: 1500,
+    basePaise: 150000,
+    gstPaise: 0,
     priceFormatted: '₹1,500',
     oldPrice: 2000,
     oldPriceFormatted: '₹2,000',
@@ -34,7 +40,7 @@ export const PLANS = {
     priceNote: 'Diwali special price. May be withdrawn without prior notice.',
     formHeading: 'Reserve your franchise spot',
     ctaText: 'Continue to pay ₹1,500',
-    finePrint: 'You will complete payment on the next step.',
+    finePrint: 'You will complete a secure Razorpay payment on the next step.',
     benefits: [
       {
         icon: 'FileDown',
@@ -76,6 +82,8 @@ export const PLANS = {
     title: 'Diwali offer: credit score repair service',
     subtitle: 'Not looking for a franchise? Take charge of your own credit score.',
     price: 3000,
+    basePaise: 300000,
+    gstPaise: 54000,
     priceFormatted: '₹3,000 + GST',
     oldPrice: 10000,
     oldPriceFormatted: '₹10,000',
@@ -84,10 +92,10 @@ export const PLANS = {
       { text: 'Save ₹7,000', variant: 'savings' },
       { text: '70% OFF', variant: 'starburst' },
     ],
-    priceNote: 'Only 100 spots, first come, first served. GST extra as applicable.',
+    priceNote: 'Only 100 spots, first come, first served. 18% GST extra: total ₹3,540.',
     formHeading: 'Book your credit score spot',
-    ctaText: 'Continue to pay ₹3,000 + GST',
-    finePrint: 'You will complete payment on the next step.',
+    ctaText: 'Continue to pay ₹3,540 (incl. GST)',
+    finePrint: 'You will complete a secure Razorpay payment on the next step.',
     benefits: [
       {
         icon: 'Zap',
