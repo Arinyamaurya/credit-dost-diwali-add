@@ -32,12 +32,13 @@ const allowedOrigins = [
   CLIENT_ORIGIN,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://visit.creditdost.co.in'
+  'https://visit.creditdost.co.in/'
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
+      console.log("Origin:", origin);
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
         return callback(null, true);
