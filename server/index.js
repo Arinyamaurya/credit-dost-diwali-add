@@ -42,7 +42,8 @@ app.use(
       if (allowedOrigins.indexOf(origin) !== -1) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS policy'));
+      
+      return callback(new Error('Not allowed by CORS policy', { origin }));
     },
     credentials: true,
   })
