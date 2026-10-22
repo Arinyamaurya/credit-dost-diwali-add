@@ -6,6 +6,7 @@
 export const OFFER_END_DATE = '2026-11-15T23:59:59+05:30';
 
 // Contact & Support Information
+export const WHATSAPP_NUMBER = "+91 92174-69202";
 export const CONTACT_PHONE = '+91 92174-69202';
 export const CONTACT_EMAIL = 'info@creditdost.co.in';
 
