@@ -4,6 +4,8 @@ const Lead = require('../models/Lead');
 const { validateLeadInput } = require('../utils/validate');
 const { claimSpotAtomic, rollbackSpotAtomic, getSpotsSummary } = require('../services/spots');
 const { sendLeadNotifications } = require('../services/mailer');
+const { getPrice } = require('../config/pricing');
+const { syncLead } = require('../services/sheets');
 
 /**
  * Check if the festival offer end date has elapsed.
@@ -14,31 +16,6 @@ function isOfferClosed() {
   const deadline = new Date(endIso).getTime();
   if (isNaN(deadline)) return false;
   return Date.now() > deadline;
-}
-
-/**
- * Build payment link with user parameters appended as query params.
- */
-function buildPaymentLink(kind, name, mobile, email, city, leadId) {
-  const rawLink = kind === 'partner'
-    ? process.env.PAYMENT_LINK_PARTNER
-    : process.env.PAYMENT_LINK_CUSTOMER;
-
-  if (!rawLink || rawLink.trim().length === 0) {
-    return '';
-  }
-
-  try {
-    const url = new URL(rawLink.trim());
-    url.searchParams.set('name', name);
-    url.searchParams.set('contact', mobile);
-    url.searchParams.set('email', email);
-    url.searchParams.set('city', city);
-    url.searchParams.set('lead_id', leadId);
-    return url.toString();
-  } catch {
-    return rawLink.trim();
-  }
 }
 
 /**
@@ -99,7 +76,8 @@ router.post('/leads', async (req, res, next) => {
     }
 
     // 6. Create Lead
-    const amount = sanitized.kind === 'partner' ? 1500 : 3000;
+    const price = getPrice(sanitized.kind);
+    const amount = price.totalPaise / 100;
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
@@ -113,6 +91,8 @@ router.post('/leads', async (req, res, next) => {
         city: sanitized.city,
         pin: sanitized.pin,
         amount,
+        amountPaise: price.totalPaise,
+        gstPaise: price.gstPaise,
         ip,
         userAgent,
         source: typeof source === 'string' ? source.slice(0, 100) : '',
@@ -134,16 +114,6 @@ router.post('/leads', async (req, res, next) => {
       throw saveError;
     }
 
-    // 6. Generate Payment Link
-    const paymentLink = buildPaymentLink(
-      sanitized.kind,
-      sanitized.name,
-      sanitized.mobile,
-      sanitized.email,
-      sanitized.city,
-      lead._id.toString()
-    );
-
     // 7. Get fresh spots summary for immediate frontend response
     const spotsSummary = await getSpotsSummary();
     const kindSpots = spotsSummary[sanitized.kind];
@@ -152,42 +122,22 @@ router.post('/leads', async (req, res, next) => {
     sendLeadNotifications(lead).catch((err) => {
       console.error('Async email notification error:', err.message);
     });
+    syncLead(lead);
 
     return res.status(201).json({
       ok: true,
       leadId: lead._id.toString(),
       kind: sanitized.kind,
       amount,
-      paymentLink,
+      amountPaise: price.totalPaise,
+      basePaise: price.basePaise,
+      gstPaise: price.gstPaise,
       spots: {
         claimed: kindSpots.claimed,
         total: kindSpots.total,
         remaining: kindSpots.remaining,
       },
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * POST /api/leads/:id/payment-started
- * Marks paymentLinkSentAt timestamp.
- */
-router.post('/leads/:id/payment-started', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const lead = await Lead.findByIdAndUpdate(
-      id,
-      { paymentLinkSentAt: new Date() },
-      { new: true }
-    );
-
-    if (!lead) {
-      return res.status(404).json({ ok: false, error: 'Lead not found' });
-    }
-
-    return res.status(200).json({ ok: true, leadId: lead._id });
   } catch (error) {
     next(error);
   }

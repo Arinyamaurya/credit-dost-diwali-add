@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getPrice } = require('../config/pricing');
 
 const leadSchema = new mongoose.Schema(
   {
@@ -40,14 +41,58 @@ const leadSchema = new mongoose.Schema(
       default: 'pending',
       index: true,
     },
+    // Total payable in whole rupees (incl. GST). Kept for admin/CSV compatibility.
     amount: {
       type: Number,
       required: true,
       default: function () {
-        return this.kind === 'partner' ? 1500 : 3000;
+        return getPrice(this.kind).totalPaise / 100;
       },
     },
-    paymentLinkSentAt: {
+    // Authoritative amounts in paise (what Razorpay charges)
+    amountPaise: {
+      type: Number,
+      default: function () {
+        return getPrice(this.kind).totalPaise;
+      },
+    },
+    gstPaise: {
+      type: Number,
+      default: function () {
+        return getPrice(this.kind).gstPaise;
+      },
+    },
+    razorpayOrderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+    paymentSource: {
+      type: String,
+      enum: [null, 'checkout', 'webhook', 'reconcile', 'admin'],
+      default: null,
+    },
+    // Set when a captured payment did not match the expected amount; needs manual review
+    paymentMismatch: {
+      type: Boolean,
+      default: false,
+    },
+    paymentFailedReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    // Google Sheets admin mirror: true when the last sync failed and needs a retry
+    sheetSyncPending: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    sheetSyncedAt: {
       type: Date,
       default: null,
     },

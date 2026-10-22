@@ -1,8 +1,14 @@
 const http = require('http');
 const mongoose = require('mongoose');
 
-const BASE_URL = 'http://localhost:5000';
-const ADMIN_TOKEN = 'credit_dost_admin_secret_token_2026';
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
+const BASE_URL = process.env.SMOKE_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+if (!ADMIN_TOKEN) {
+  console.error('ADMIN_TOKEN must be set in server/.env to run the smoke test');
+  process.exit(1);
+}
 
 function request(path, options = {}, body = null) {
   return new Promise((resolve, reject) => {
