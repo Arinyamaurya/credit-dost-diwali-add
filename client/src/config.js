@@ -6,9 +6,8 @@
 export const OFFER_END_DATE = '2026-11-15T23:59:59+05:30';
 
 // Contact & Support Information
-export const WHATSAPP_NUMBER = '919876543210'; // Indian format with country code (91)
-export const CONTACT_PHONE = '+91 98765 43210';
-export const CONTACT_EMAIL = 'support@creditdost.co.in';
+export const CONTACT_PHONE = '+91 92174-69202';
+export const CONTACT_EMAIL = 'info@creditdost.co.in';
 
 // API Base URL (empty string uses Vite proxy in dev; can set VITE_API_URL in production)
 export const API_URL = import.meta.env.VITE_API_URL || '';
