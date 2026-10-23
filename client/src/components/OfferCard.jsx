@@ -50,7 +50,7 @@ export const OfferCard = ({
         <p className="card-subtitle">{plan.subtitle}</p>
 
         {/* Real Claimed Spots Progress Bar with animated count-up and urgency tag */}
-        <SpotsMeter spotData={spotData} />
+        <SpotsMeter spotData={spotData} claimedOverride={isPartner ? 45 : 65} />
 
         <PriceBlock
           priceFormatted={plan.priceFormatted}

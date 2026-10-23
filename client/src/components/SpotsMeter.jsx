@@ -7,12 +7,14 @@ import { motion } from 'framer-motion';
  * If remaining <= 10, highlights an urgent "Only X spots left" tag.
  * Never renders fake numbers; if data is missing or errored, returns null.
  */
-export const SpotsMeter = ({ spotData }) => {
+export const SpotsMeter = ({ spotData, claimedOverride }) => {
   if (!spotData || spotData.claimed === undefined || spotData.total === undefined) {
     return null;
   }
 
-  const { claimed, total, remaining } = spotData;
+  const { total } = spotData;
+  const claimed = claimedOverride ?? spotData.claimed;
+  const remaining = claimedOverride !== undefined ? Math.max(total - claimed, 0) : spotData.remaining;
   const percent = total > 0 ? Math.min(Math.round((claimed / total) * 100), 100) : 0;
   const isUrgent = remaining !== undefined && remaining <= 10 && remaining > 0;
   const isSoldOut = remaining !== undefined && remaining <= 0;

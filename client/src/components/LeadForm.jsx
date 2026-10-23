@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { API_URL, WHATSAPP_NUMBER } from '../config';
+import { API_URL, CONTACT_PHONE } from '../config';
 import { ConfirmPanel } from './ConfirmPanel';
 import { AlertCircle, Loader2, Sparkle, CheckCircle, MessageCircle } from 'lucide-react';
 
