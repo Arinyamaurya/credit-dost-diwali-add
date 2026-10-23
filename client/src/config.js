@@ -67,11 +67,6 @@ export const PLANS = {
         title: 'Work from home',
         description: 'A phone or laptop and an internet connection is all you need.',
       },
-      {
-        icon: 'BadgeIndianRupee',
-        title: 'Earn attractive commissions',
-        description: 'Get paid on the clients you bring in.',
-      },
     ],
   },
   customer: {
