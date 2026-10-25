@@ -103,8 +103,10 @@ export function useRazorpayCheckout({ lead, onPaid }) {
     if (status === 'paid') {
       markSuccess(response.razorpay_payment_id);
     } else if (mountedRef.current) {
+      // Re-enable payment so the user is never stuck on "Confirming payment..."
+      setPhase('idle');
       setError(
-        'We are still confirming your payment. If money was debited, you will receive a confirmation email shortly — no need to pay again.'
+        'We could not confirm your payment yet. If money was debited, it will be confirmed shortly. Please check your email before paying again.'
       );
     }
   }, [markSuccess, pollStatus]);

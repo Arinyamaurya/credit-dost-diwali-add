@@ -25,7 +25,7 @@ export const ConfirmPanel = ({ lead, plan, onEdit, onPaid }) => {
     open: 'Complete payment in the window...',
     verifying: 'Verifying payment...',
     confirming: 'Confirming payment...',
-  }[phase] || `Pay ${totalText} securely`;
+  }[phase] || (error ? `Retry payment of ${totalText}` : `Pay ${totalText} securely`);
 
   return (
     <div className="confirm-panel" role="region" aria-label="Lead confirmation details">
