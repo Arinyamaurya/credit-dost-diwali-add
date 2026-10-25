@@ -56,8 +56,15 @@ router.post('/order', async (req, res, next) => {
       });
     }
 
+    // Unpaid leads always use the current price (leads saved before a price change would otherwise keep the old amount)
     const price = getPrice(lead.kind);
-    const amountPaise = lead.amountPaise || price.totalPaise;
+    if (lead.amountPaise !== price.totalPaise) {
+      lead.amount = price.totalPaise / 100;
+      lead.amountPaise = price.totalPaise;
+      lead.gstPaise = price.gstPaise;
+      await lead.save();
+    }
+    const amountPaise = lead.amountPaise;
 
     // Reuse the existing order on retries / double clicks so one lead maps to one order
     let order = null;

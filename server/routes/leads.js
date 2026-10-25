@@ -58,6 +58,28 @@ router.post('/leads', async (req, res, next) => {
       $or: [{ mobile: sanitized.mobile }, { email: sanitized.email }],
     });
     if (existingLead) {
+      // Unpaid reservation (e.g. payment failed, storage cleared): resume it so the user can pay again
+      if (existingLead.status === 'pending') {
+        const spotsSummary = await getSpotsSummary();
+        const kindSpots = spotsSummary[sanitized.kind];
+        const currentPrice = getPrice(existingLead.kind);
+        return res.status(200).json({
+          ok: true,
+          resumed: true,
+          leadId: existingLead._id.toString(),
+          kind: existingLead.kind,
+          amount: currentPrice.totalPaise / 100,
+          amountPaise: currentPrice.totalPaise,
+          basePaise: currentPrice.basePaise,
+          gstPaise: currentPrice.gstPaise,
+          spots: {
+            claimed: kindSpots.claimed,
+            total: kindSpots.total,
+            remaining: kindSpots.remaining,
+          },
+        });
+      }
+
       return res.status(409).json({
         ok: false,
         code: 'ALREADY_REGISTERED',
